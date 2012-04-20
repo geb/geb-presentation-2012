@@ -1,0 +1,19 @@
+apply plugin: "groovy"
+
+allprojects {
+    version 0.1
+    apply plugin: "idea"
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    runtime subprojects.collect { owner.project(it.path) }
+    runtime ('com.uwyn:jhighlight:1.0') {
+        exclude module: "servlet-api"
+    }
+}
+
+apply from: "../idea/idea.gradle"

@@ -1,0 +1,15 @@
+rootProject.name = 'geb-presentation-2012'
+
+include "slides"
+include "demo"
+
+def setBuildFile(project) {
+	project.buildFileName = "${project.name}.gradle"
+	project.children.each {
+		setBuildFile(it)
+	}
+}
+
+rootProject.children.each {
+	setBuildFile(it)
+}

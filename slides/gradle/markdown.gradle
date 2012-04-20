@@ -1,0 +1,34 @@
+import org.gradle.plugins.pegdown.PegDown
+
+apply plugin: "pegdown"
+
+class FileConcatTask extends SourceTask {
+    @Input @Optional byte[] joiner
+    
+    private destination
+    @OutputFile File getDestination() { project.file(destination) }
+    void setDestination(destination) { this.destination = destination }
+    
+    @TaskAction
+    void doFileConcat() {
+        getDestination().withOutputStream { out ->
+            getSource().files.sort { it.name }.each {
+                it.withInputStream { out << it }
+                if (joiner) {
+                    out << joiner
+                }
+            }
+        }
+    }
+}
+
+task concatMarkdown(type: FileConcatTask) {
+    source fileTree("src/slides") { include "*.md" }
+    destination "$buildDir/all.md"
+    joiner "\n\n".getBytes("UTF-8")
+}
+
+task markdown(type: PegDown) {
+    source concatMarkdown
+    destination "$buildDir/html/raw.html"
+}

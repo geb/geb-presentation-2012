@@ -1,0 +1,25 @@
+import org.gradle.plugins.jsoup.Jsoup
+
+apply plugin: "base"
+apply plugin: "idea"
+apply plugin: "jsoup"
+
+// Put the downloads in a different place so clean doesn't wipe them outs
+ext.downloadDir = file("downloads")
+task cleanDownloads(type: Delete) {
+    delete downloadDir
+}
+
+// Common output settings for all html transforms
+tasks.withType(Jsoup) {
+    destination "$buildDir/html/${name}.html"
+    inputEncoding "utf-8"
+    transform {
+        outputSettings().indentAmount(2).prettyPrint(true)
+    }
+}
+
+apply from: "gradle/less.gradle"
+apply from: "gradle/markdown.gradle"
+apply from: "gradle/enhanceHtml.gradle"
+apply from: "gradle/slideshow.gradle"

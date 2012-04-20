@@ -1,0 +1,120 @@
+import org.gradle.plugins.jsoup.Jsoup
+
+task downloadDeckJs(type: DownloadZipAndUnpack) {
+    zipUrl "https://github.com/imakewebthings/deck.js/zipball/c77cfb7148114873bc9b682ba73288c5275b6175"
+    destination file("$downloadDir/deck.js")
+    nested true
+}
+
+task downloadDeckExtJs(type: DownloadZipAndUnpack) {
+    zipUrl "https://github.com/barraq/deck.ext.js/zipball/a4d2d7f9fc5773186e45713f35a221f596345c86"
+    destination file("$downloadDir/deck.ext.js")
+    nested true
+}
+
+task slideshowHtml(type: Jsoup) {
+    outputs.upToDateWhen { false }
+    source enhancedHtml
+    ext.headHtml = file("src/slideshow/head.html").getText("utf-8")
+    inputs.property("headHtml", headHtml)
+    transform {
+        body().addClass("deck-container")
+        head().append(headHtml)
+    }
+
+    // add an inner container to each slide so we can place it
+    transform {
+        body().select("section.slide").each { slide ->
+            def children = slide.children()
+            children.remove()
+            def inner = slide.prepend("<div class='inner' />").child(0)
+            children.each { inner.appendChild(it) }
+        }
+    }
+
+    // add notes container
+    transform {
+        body().append("""
+            <div class="deck-notes">
+                <div class="deck-notes-header">Slide Notes…</div>
+                <div class="deck-notes-container"></div>
+            </div>
+        """)
+    }
+}
+
+task slideshow(type: Sync) {
+    into "$buildDir/slideshow"
+    from(slideshowHtml) {
+        rename ".*", "index.html"
+    }
+    into ("deckjs") {
+        from(downloadDeckJs) {
+            include "core/**/*"
+            include "themes/transition/**/*"
+            include "jquery*"
+            include "modernizr*"
+            include "*license*"
+            include "extensions/hash/**/*"
+        }
+        from(downloadDeckExtJs) {
+            include "extensions/notes/**/*"
+            include "extensions/clone/**/*"
+        }
+    }
+    from("src/slideshow/content")
+    from (less) {
+        into "style"
+    }
+    from ("src/style") {
+        into "style"
+        exclude "**/*.less"
+    }
+    doLast {
+        logger.lifecycle("Output: " + file("$destinationDir/index.html").toURL())
+    }
+}
+
+class DownloadZipAndUnpack extends DefaultTask {
+
+    @Input
+    String zipUrl
+
+    @OutputDirectory
+    File destination
+
+    @Input
+    boolean force
+
+    @Input
+    boolean nested // is the real content in the only dir at the root of the zip?
+
+    DownloadZipAndUnpack() {
+        outputs.upToDateWhen { !getForce() }
+    }
+
+    @TaskAction
+    void doDownloadZipAndUnpack() {
+        def url = new URL(getZipUrl())
+        def tmp = temporaryDir
+        def zipDestination = new File(tmp, "zip.zip")
+        url.withInputStream { zipBytes ->
+            zipDestination.withOutputStream { it << zipBytes }
+        }
+
+        def unzipDestination = nested ? new File(tmp, "unzipped") : destination
+
+        // GRADLE-2158 workaround
+        ant.unzip(src: zipDestination, dest: unzipDestination)
+
+        if (nested) {
+            def files = unzipDestination.listFiles()
+            assert files.size() == 1 : "expecting downloaded zip @ $unzipDestination to have one root dir"
+
+            project.copy {
+                from files.first()
+                into getDestination()
+            }
+        }
+    }
+}

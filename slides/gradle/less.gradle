@@ -1,0 +1,48 @@
+import org.gradle.plugins.lesscss.LessCss
+
+apply plugin: "lesscss"
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    rhino
+}
+
+dependencies {
+    rhino "rhino:js:1.7R2"
+}
+
+task downloadLessCssRhino(type: UrlDownload) {
+    ext.filename = "less-rhino-1.1.3.js"
+    url "https://raw.github.com/erwan/less.js/rhino/dist/$filename"
+    destination file("$downloadDir/$filename")
+}
+
+lesscss {
+    rhinoClasspath = configurations.rhino
+    lessCssRhinoJs = files(downloadLessCssRhino)
+}
+
+task less(type: LessCss) {
+    source fileTree("src/style") { include "*.less" }
+    destination "$buildDir/less"
+}
+
+class UrlDownload extends DefaultTask {
+
+    @Input
+    String url
+    
+    @OutputFile
+    File destination
+
+    @TaskAction
+    void doDownload() {
+        getDestination().withOutputStream { out -> 
+            new URL(getUrl()).withInputStream { out << it }
+        }         
+    }
+
+}
